@@ -10,6 +10,7 @@ import {
 import { generateModulAjar } from './services/geminiService';
 
 declare var html2pdf: any;
+declare var htmlDocx: any;
 
 function App() {
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
@@ -110,6 +111,112 @@ function App() {
       console.error("PDF Download Error:", err);
       alert("Gagal mengunduh PDF. Silakan coba lagi.");
     });
+  };
+
+  const handleExportWord = () => {
+    if (!result) return;
+
+    // Sanitize filename
+    const safeSubject = formData.subject.replace(/[^a-z0-9]/gi, '_').substring(0, 30);
+    const safeTopic = formData.topic.replace(/[^a-z0-9]/gi, '_').substring(0, 30);
+    const fileName = `Modul_Ajar_${safeSubject}_${safeTopic}.docx`;
+
+    // Construct the HTML content with specific styles for Word
+    // Note: Word relies on basic CSS, so we ensure tables have borders explicitly.
+    const htmlString = `
+      <!DOCTYPE html>
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset="utf-8">
+        <style>
+           body { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.5; }
+           h1 { font-size: 14pt; font-weight: bold; text-align: center; }
+           h2 { font-size: 12pt; font-weight: bold; text-align: center; margin-bottom: 20px; }
+           h3 { 
+             font-size: 12pt; 
+             font-weight: bold; 
+             background-color: #f3f4f6; 
+             padding: 8px; 
+             border-left: 5px solid #2563eb; 
+             margin-top: 20px; 
+             margin-bottom: 10px; 
+           }
+           table { border-collapse: collapse; width: 100%; margin-bottom: 15px; }
+           td, th { border: 1px solid #000; padding: 6px; vertical-align: top; text-align: left; }
+           th { background-color: #e5e7eb; font-weight: bold; }
+           .page-break { page-break-before: always; }
+           p { margin-bottom: 10px; }
+           ul, ol { margin-left: 20px; margin-bottom: 10px; }
+           li { margin-bottom: 5px; }
+           .signature-table td { border: none !important; text-align: center; padding-top: 30px; }
+        </style>
+      </head>
+      <body>
+         <div style="text-align:center; margin-bottom: 20px;">
+            <h1>MODUL AJAR / RENCANA PEMBELAJARAN MENDALAM</h1>
+            <h2>${formData.schoolName}</h2>
+         </div>
+         
+         <h3>A. IDENTITAS MODUL</h3>
+         ${result.sectionA_Identity}
+         
+         <h3>B. IDENTIFIKASI</h3>
+         ${result.sectionB_Identification}
+         
+         <div class="page-break"></div>
+         <h3>C. DESAIN PEMBELAJARAN</h3>
+         ${result.sectionC_Design}
+         
+         <h3>D. PENGALAMAN BELAJAR</h3>
+         ${result.sectionD_LearningExperience}
+         
+         <div class="page-break"></div>
+         <h3>E. ASESMEN PEMBELAJARAN</h3>
+         ${result.sectionE_Assessment}
+         
+         <div class="page-break"></div>
+         <h3>F. LAMPIRAN (LKPD)</h3>
+         ${result.sectionF_LKPD}
+         
+         <br/><br/>
+         <div class="page-break-inside-avoid">
+           <table class="signature-table" style="border: none; margin-top: 50px; width: 100%;">
+              <tr style="border: none;">
+                  <td style="border: none; width: 50%;">
+                      Mengetahui,<br/>Kepala Sekolah<br/><br/><br/><br/><br/>
+                      <b><u>${formData.headmasterName || "_________________________"}</u></b><br/>
+                      NUPTK. ${formData.headmasterNuptk || "..........................."}
+                  </td>
+                  <td style="border: none; width: 50%;">
+                      Jember, ${new Date().toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}<br/>
+                      Guru Mata Pelajaran<br/><br/><br/><br/><br/>
+                      <b><u>${formData.teacherName}</u></b><br/>
+                      NUPTK. ${formData.teacherNuptk || "..........................."}
+                  </td>
+              </tr>
+           </table>
+         </div>
+      </body>
+      </html>
+    `;
+
+    try {
+      const blob = htmlDocx.asBlob(htmlString);
+      
+      // Create download link
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    } catch (error) {
+      console.error("Docx Export Error:", error);
+      alert("Gagal mengekspor ke Word. Pastikan browser Anda mendukung fitur ini.");
+    }
   };
 
   const handleCopyToDocs = async () => {
@@ -421,6 +528,12 @@ function App() {
                   className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium flex items-center"
                 >
                   <span className="mr-2">📋</span> Salin & Buka Google Doc
+                </button>
+                <button 
+                  onClick={handleExportWord}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center"
+                >
+                  <span className="mr-2">📝</span> Download .docx
                 </button>
                 <button 
                   onClick={handleDownloadPDF}
